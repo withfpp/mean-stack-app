@@ -1,64 +1,16 @@
-var express = require('express'),
-		stylus = require('stylus'),
-		mongoose = require('mongoose'),
-		logger = require('morgan'),
-		bodyParser = require('body-parser');
-
+var express = require('express');
 
 var env = process.env.NODE_ENV = process.env.NODE_ENV || 'development';
 
 var app = express();
 
-function compile(str, path){
-	return stylus(str).set('filename', path);
-}
+var config = require('./server/config/config')[env]
 
-app.set('views', __dirname + '/server/views');
-app.set('view engine', 'jade');
+require('./server/config/express')(app, config);
+require('./server/config/mongoose')(config);
+require('./server/config/routes')(app);
 
-app.use(logger('dev'));
-app.use(bodyParser.urlencoded({extended: true}));
-app.use(bodyParser.json());
 
-app.use(stylus.middleware({
-	src: __dirname + '/public',
-	compile: compile
-}))
+app.listen(config.port);
+console.log('Listening on port ' + config.port);
 
-app.use(express.static(__dirname + '/public'));
-
-if(env === 'development'){
-	mongoose.connect('mongodb://localhost/tktech');
-}else{
-	mongoose.connect('mongodb://withfpp:tktech@ds045679.mongolab.com:45679/tktech');
-}
-
-var db = mongoose.connection;
-db.on('error', console.error.bind(console, 'connection error...'));
-db.once('open', function callback(){
-	console.log('tktech db opened')
-})
-
-//db순서 : 1.스키마 2.스키마베이스 모델 생성
-var messageSchema = mongoose.Schema({message: String});
-var Message = mongoose.model('Message', messageSchema);
-
-var mongoMessage;
-Message.findOne().exec(function(err, messageDoc){
-	mongoMessage = messageDoc.message;
-})
-
-app.get('/partials/:partialPath', function(req, res){
-	res.render('partials/' + req.params.partialPath);
-})
-
-app.get('*', function(req, res){
-	res.render('index', {
-		mongoMessage: mongoMessage
-	});
-})
-
-var port = process.env.PORT || 3030;
-
-app.listen(port);
-console.log('Listening on port ' + port);
